@@ -1,7 +1,6 @@
 {
   "name": "screenarc",
   "description": "Screen recording and editing app",
-  "author": "Tam Nguyen",
   "private": true,
   "version": "0.0.0-development",
   "type": "module",
@@ -164,7 +163,7 @@
         "rpm",
         "zip"
       ],
-      "maintainer": "Tam Nguyen tamnvhustcc@gmail.com",
+      "maintainer": "",
       "icon": "build/screenarc-appicon.png",
       "category": "Utility;AudioVideo;Recorder",
       "synopsis": "Screen recording and editing app",

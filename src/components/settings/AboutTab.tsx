@@ -23,12 +23,11 @@ export function AboutTab() {
       <p className="text-sm text-muted-foreground mb-6">Version {appVersion}</p>
 
       <div className="text-sm text-foreground space-y-2">
-        <p>Created with ❤️ by Tam Nguyen.</p>
         <p>A modern screen recorder and editor designed to be simple and powerful.</p>
       </div>
 
       <div className="mt-8 flex items-center gap-4">
-        <Button variant="secondary" onClick={() => openLink('https://github.com/tamnguyenvan/screenarc')}>
+        <Button variant="secondary" onClick={() => openLink('https://github.com/johnkeysceo-cmd/content-generation')}>
           <BrandGithub className="w-4 h-4 mr-2" />
           GitHub Repository
         </Button>
