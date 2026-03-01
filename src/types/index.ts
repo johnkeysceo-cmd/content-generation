@@ -1,7 +1,7 @@
 // --- Types ---
 export type BackgroundType = 'color' | 'gradient' | 'image' | 'wallpaper'
 export type AspectRatio = '16:9' | '9:16' | '4:3' | '3:4' | '1:1'
-export type SidePanelTab = 'general' | 'camera' | 'cursor' | 'audio' | 'animation' | 'settings'
+export type SidePanelTab = 'general' | 'camera' | 'cursor' | 'audio' | 'animation' | 'settings' | 'ai-zoom' | 'production'
 
 export interface Background {
   type: BackgroundType
@@ -40,6 +40,31 @@ export interface CursorStyles {
   clickScaleAmount: number
   clickScaleDuration: number
   clickScaleEasing: string
+  // ENHANCED: Cursor FX - Glow Effect
+  cursorGlowEffect: boolean
+  cursorGlowColor: string
+  cursorGlowSize: number
+  cursorGlowIntensity: number
+  // ENHANCED: Cursor FX - Motion Trail
+  cursorMotionTrail: boolean
+  motionTrailLength: number
+  motionTrailOpacity: number
+  // ENHANCED: Cursor FX - Speed Motion Blur
+  cursorMotionBlur: boolean
+  motionBlurIntensity: number
+  motionBlurThreshold: number
+  // NEW: Automatic Swoosh FX
+  swooshEffect: boolean
+  swooshIntensity: number
+  swooshThreshold: number
+  // NEW: Speed Lines FX
+  speedLines: boolean
+  speedLinesIntensity: number
+  speedLinesThreshold: number
+  // NEW: Click Explosion FX
+  clickExplosion: boolean
+  clickExplosionIntensity: number
+  clickExplosionParticles: number
 }
 
 export interface Preset {
@@ -65,6 +90,9 @@ export interface ZoomRegion {
   targetY: number
   mode: 'auto' | 'fixed'
   zIndex: number
+  // NEW: Blur effect during zoom
+  blurEnabled: boolean
+  blurAmount: number
 }
 
 export interface CutRegion {
@@ -277,15 +305,39 @@ export interface UIActions {
   setActiveSidePanelTab: (tab: SidePanelTab) => void
 }
 
+export interface Beat {
+  time: number
+  strength: number
+}
+
+export interface BeatMatchingSettings {
+  cutDuration: number
+  startPadding: number
+  endPadding: number
+  minInterval: number
+  beatStrengthThreshold: number
+}
+
 export interface AudioState {
   volume: number // 0 to 1
   isMuted: boolean
+  // NEW: Beat matching state
+  beatAnalysisResult: { beats: Beat[]; bpm: number; duration: number } | null
+  isAnalyzingAudio: boolean
+  beatMatchingEnabled: boolean
+  beatMatchingSettings: BeatMatchingSettings
 }
 
 export interface AudioActions {
   setVolume: (volume: number) => void
   toggleMute: () => void
   setIsMuted: (isMuted: boolean) => void
+  // NEW: Beat matching actions
+  setBeatAnalysisResult: (result: { beats: Beat[]; bpm: number; duration: number } | null) => void
+  setIsAnalyzingAudio: (isAnalyzing: boolean) => void
+  setBeatMatchingEnabled: (enabled: boolean) => void
+  updateBeatMatchingSettings: (settings: Partial<BeatMatchingSettings>) => void
+  applyBeatMatchingToTimeline: (addCutRegion: (data?: { startTime: number; duration: number }) => void, videoDuration: number) => void
 }
 
 export type RenderableState = Pick<

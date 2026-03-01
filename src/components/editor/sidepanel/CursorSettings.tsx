@@ -1,4 +1,4 @@
-import { Pointer, Shadow, HandClick } from 'tabler-icons-react'
+import { Pointer, Shadow, HandClick, Wind, CircleDot } from 'tabler-icons-react'
 import { SparklesIcon } from '../../ui/icons'
 import { Collapse } from '../../ui/collapse'
 import { cn } from '../../../lib/utils'
@@ -141,6 +141,52 @@ export function CursorSettings() {
       clickScaleAmount: DEFAULTS.CURSOR.CLICK_SCALE.AMOUNT.defaultValue,
       clickScaleDuration: DEFAULTS.CURSOR.CLICK_SCALE.DURATION.defaultValue,
       clickScaleEasing: DEFAULTS.CURSOR.CLICK_SCALE.EASING.defaultValue,
+    })
+  }
+
+  // NEW: Handler for Glow effect color
+  const { hex: glowHex, alpha: glowAlpha } = useMemo(
+    () => rgbaToHexAlpha(cursorStyles.cursorGlowColor),
+    [cursorStyles.cursorGlowColor],
+  )
+
+  const handleGlowColorChange = (newHex: string) => {
+    const rgb = hexToRgb(newHex)
+    if (rgb) {
+      const newRgbaColor = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${glowAlpha})`
+      updateCursorStyle({ cursorGlowColor: newRgbaColor })
+    }
+  }
+
+  const handleGlowOpacityChange = (newAlpha: number) => {
+    const rgb = hexToRgb(glowHex)
+    if (rgb) {
+      const newRgbaColor = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${newAlpha})`
+      updateCursorStyle({ cursorGlowColor: newRgbaColor })
+    }
+  }
+
+  const handleResetCursorFX = () => {
+    updateCursorStyle({
+      cursorGlowEffect: DEFAULTS.CURSOR.CURSOR_GLOW.ENABLED.defaultValue,
+      cursorGlowColor: DEFAULTS.CURSOR.CURSOR_GLOW.COLOR.defaultValue,
+      cursorGlowSize: DEFAULTS.CURSOR.CURSOR_GLOW.SIZE.defaultValue,
+      cursorGlowIntensity: DEFAULTS.CURSOR.CURSOR_GLOW.INTENSITY.defaultValue,
+      cursorMotionTrail: DEFAULTS.CURSOR.MOTION_TRAIL.ENABLED.defaultValue,
+      motionTrailLength: DEFAULTS.CURSOR.MOTION_TRAIL.LENGTH.defaultValue,
+      motionTrailOpacity: DEFAULTS.CURSOR.MOTION_TRAIL.OPACITY.defaultValue,
+      cursorMotionBlur: DEFAULTS.CURSOR.MOTION_BLUR.ENABLED.defaultValue,
+      motionBlurIntensity: DEFAULTS.CURSOR.MOTION_BLUR.INTENSITY.defaultValue,
+      motionBlurThreshold: DEFAULTS.CURSOR.MOTION_BLUR.THRESHOLD.defaultValue,
+      swooshEffect: DEFAULTS.CURSOR.SWOOSH_EFFECT.ENABLED.defaultValue,
+      swooshIntensity: DEFAULTS.CURSOR.SWOOSH_EFFECT.INTENSITY.defaultValue,
+      swooshThreshold: DEFAULTS.CURSOR.SWOOSH_EFFECT.THRESHOLD.defaultValue,
+      speedLines: DEFAULTS.CURSOR.SPEED_LINES.ENABLED.defaultValue,
+      speedLinesIntensity: DEFAULTS.CURSOR.SPEED_LINES.INTENSITY.defaultValue,
+      speedLinesThreshold: DEFAULTS.CURSOR.SPEED_LINES.THRESHOLD.defaultValue,
+      clickExplosion: DEFAULTS.CURSOR.CLICK_EXPLOSION.ENABLED.defaultValue,
+      clickExplosionIntensity: DEFAULTS.CURSOR.CLICK_EXPLOSION.INTENSITY.defaultValue,
+      clickExplosionParticles: DEFAULTS.CURSOR.CLICK_EXPLOSION.PARTICLES.defaultValue,
     })
   }
 
@@ -494,6 +540,216 @@ export function CursorSettings() {
                 />
               </div>
             </div>
+          </div>
+        </Collapse>
+        {/* NEW: Cursor FX Section - Glow, Motion Trail, Motion Blur */}
+        <Collapse
+          title="Cursor FX"
+          description="Enhanced cursor effects for viral videos"
+          icon={<CircleDot className="w-4 h-4 text-primary" />}
+          defaultOpen={false}
+          onReset={handleResetCursorFX}
+        >
+          <div className="space-y-6">
+            {/* Cursor Glow Effect */}
+            <ControlGroup
+              label="Cursor Glow"
+              icon={<SparklesIcon className="w-4 h-4 text-primary/80" />}
+              description="A glowing effect around the cursor."
+            >
+              <div className="space-y-4 pt-2">
+                <div className="flex items-center justify-between w-full">
+                  <label
+                    htmlFor="cursor-glow-effect"
+                    className={`text-sm font-medium ${!cursorStyles.cursorGlowEffect ? 'text-muted-foreground' : 'text-foreground/80'}`}
+                  >
+                    Visibility
+                  </label>
+                  <Switch
+                    id="cursor-glow-effect"
+                    checked={cursorStyles.cursorGlowEffect}
+                    onCheckedChange={(v) => updateCursorStyle({ cursorGlowEffect: v })}
+                  />
+                </div>
+                <div className={`space-y-4 ${!cursorStyles.cursorGlowEffect ? 'opacity-70' : ''}`}>
+                  <div className="space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-muted-foreground">Glow Size</span>
+                      <span className="text-xs font-semibold text-primary tabular-nums">
+                        {cursorStyles.cursorGlowSize}px
+                      </span>
+                    </div>
+                    <Slider
+                      disabled={!cursorStyles.cursorGlowEffect}
+                      min={DEFAULTS.CURSOR.CURSOR_GLOW.SIZE.min}
+                      max={DEFAULTS.CURSOR.CURSOR_GLOW.SIZE.max}
+                      step={DEFAULTS.CURSOR.CURSOR_GLOW.SIZE.step}
+                      value={cursorStyles.cursorGlowSize}
+                      onChange={(v) => updateCursorStyle({ cursorGlowSize: v })}
+                    />
+                  </div>
+                  <div className="space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-muted-foreground">Intensity</span>
+                      <span className="text-xs font-semibold text-primary tabular-nums">
+                        {cursorStyles.cursorGlowIntensity.toFixed(1)}x
+                      </span>
+                    </div>
+                    <Slider
+                      disabled={!cursorStyles.cursorGlowEffect}
+                      min={DEFAULTS.CURSOR.CURSOR_GLOW.INTENSITY.min}
+                      max={DEFAULTS.CURSOR.CURSOR_GLOW.INTENSITY.max}
+                      step={DEFAULTS.CURSOR.CURSOR_GLOW.INTENSITY.step}
+                      value={cursorStyles.cursorGlowIntensity}
+                      onChange={(v) => updateCursorStyle({ cursorGlowIntensity: v })}
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <ColorPicker
+                        label="Color"
+                        value={glowHex}
+                        onChange={handleGlowColorChange}
+                        disabled={!cursorStyles.cursorGlowEffect}
+                      />
+                    </div>
+                    <div className="space-y-2.5">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-muted-foreground">Opacity</span>
+                        <span className="text-xs font-semibold text-primary tabular-nums">
+                          {Math.round(glowAlpha * 100)}%
+                        </span>
+                      </div>
+                      <Slider
+                        disabled={!cursorStyles.cursorGlowEffect}
+                        min={0}
+                        max={1}
+                        step={0.01}
+                        value={glowAlpha}
+                        onChange={handleGlowOpacityChange}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </ControlGroup>
+
+            {/* Motion Trail Effect */}
+            <ControlGroup
+              label="Motion Trail"
+              icon={<Wind className="w-4 h-4 text-primary/80" />}
+              description="A trailing effect when cursor moves."
+            >
+              <div className="space-y-4 pt-2">
+                <div className="flex items-center justify-between w-full">
+                  <label
+                    htmlFor="motion-trail-effect"
+                    className={`text-sm font-medium ${!cursorStyles.cursorMotionTrail ? 'text-muted-foreground' : 'text-foreground/80'}`}
+                  >
+                    Visibility
+                  </label>
+                  <Switch
+                    id="motion-trail-effect"
+                    checked={cursorStyles.cursorMotionTrail}
+                    onCheckedChange={(v) => updateCursorStyle({ cursorMotionTrail: v })}
+                  />
+                </div>
+                <div className={`space-y-4 ${!cursorStyles.cursorMotionTrail ? 'opacity-70' : ''}`}>
+                  <div className="space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-muted-foreground">Trail Length</span>
+                      <span className="text-xs font-semibold text-primary tabular-nums">
+                        {cursorStyles.motionTrailLength}
+                      </span>
+                    </div>
+                    <Slider
+                      disabled={!cursorStyles.cursorMotionTrail}
+                      min={DEFAULTS.CURSOR.MOTION_TRAIL.LENGTH.min}
+                      max={DEFAULTS.CURSOR.MOTION_TRAIL.LENGTH.max}
+                      step={DEFAULTS.CURSOR.MOTION_TRAIL.LENGTH.step}
+                      value={cursorStyles.motionTrailLength}
+                      onChange={(v) => updateCursorStyle({ motionTrailLength: v })}
+                    />
+                  </div>
+                  <div className="space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-muted-foreground">Opacity</span>
+                      <span className="text-xs font-semibold text-primary tabular-nums">
+                        {Math.round(cursorStyles.motionTrailOpacity * 100)}%
+                      </span>
+                    </div>
+                    <Slider
+                      disabled={!cursorStyles.cursorMotionTrail}
+                      min={DEFAULTS.CURSOR.MOTION_TRAIL.OPACITY.min}
+                      max={DEFAULTS.CURSOR.MOTION_TRAIL.OPACITY.max}
+                      step={DEFAULTS.CURSOR.MOTION_TRAIL.OPACITY.step}
+                      value={cursorStyles.motionTrailOpacity}
+                      onChange={(v) => updateCursorStyle({ motionTrailOpacity: v })}
+                    />
+                  </div>
+                </div>
+              </div>
+            </ControlGroup>
+
+            {/* Motion Blur Effect */}
+            <ControlGroup
+              label="Motion Blur"
+              icon={<CircleDot className="w-4 h-4 text-primary/80" />}
+              description="Speed-based blur effect during fast movement."
+            >
+              <div className="space-y-4 pt-2">
+                <div className="flex items-center justify-between w-full">
+                  <label
+                    htmlFor="motion-blur-effect"
+                    className={`text-sm font-medium ${!cursorStyles.cursorMotionBlur ? 'text-muted-foreground' : 'text-foreground/80'}`}
+                  >
+                    Visibility
+                  </label>
+                  <Switch
+                    id="motion-blur-effect"
+                    checked={cursorStyles.cursorMotionBlur}
+                    onCheckedChange={(v) => updateCursorStyle({ cursorMotionBlur: v })}
+                  />
+                </div>
+                <div className={`space-y-4 ${!cursorStyles.cursorMotionBlur ? 'opacity-70' : ''}`}>
+                  <div className="space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-muted-foreground">Blur Intensity</span>
+                      <span className="text-xs font-semibold text-primary tabular-nums">
+                        {cursorStyles.motionBlurIntensity.toFixed(2)}
+                      </span>
+                    </div>
+                    <Slider
+                      disabled={!cursorStyles.cursorMotionBlur}
+                      min={DEFAULTS.CURSOR.MOTION_BLUR.INTENSITY.min}
+                      max={DEFAULTS.CURSOR.MOTION_BLUR.INTENSITY.max}
+                      step={DEFAULTS.CURSOR.MOTION_BLUR.INTENSITY.step}
+                      value={cursorStyles.motionBlurIntensity}
+                      onChange={(v) => updateCursorStyle({ motionBlurIntensity: v })}
+                    />
+                  </div>
+                  <div className="space-y-2.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-muted-foreground">Speed Threshold</span>
+                      <span className="text-xs font-semibold text-primary tabular-nums">
+                        {cursorStyles.motionBlurThreshold}px/frame
+                      </span>
+                    </div>
+                    <Slider
+                      disabled={!cursorStyles.cursorMotionBlur}
+                      min={DEFAULTS.CURSOR.MOTION_BLUR.THRESHOLD.min}
+                      max={DEFAULTS.CURSOR.MOTION_BLUR.THRESHOLD.max}
+                      step={DEFAULTS.CURSOR.MOTION_BLUR.THRESHOLD.step}
+                      value={cursorStyles.motionBlurThreshold}
+                      onChange={(v) => updateCursorStyle({ motionBlurThreshold: v })}
+                    />
+                    <p className="text-xs text-muted-foreground pt-1">
+                      Minimum cursor speed to trigger blur effect.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </ControlGroup>
           </div>
         </Collapse>
       </div>

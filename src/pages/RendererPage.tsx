@@ -114,11 +114,12 @@ export function RendererPage() {
       const webcamVideo = webcamVideoRef.current
 
       try {
-        log.info('[RendererPage] Received "render:start" event.', { exportSettings })
+        log.info('[RendererPage] Received "render:start" event.', { exportSettings, videoPath: projectState.videoPath })
         if (!canvas || !video) throw new Error('Canvas or Video ref is not available.')
 
         // --- 1. SETUP CANVAS AND CONTEXT ---
         const { resolution, fps } = exportSettings
+        log.info('[RendererPage] aspectRatio:', projectState.aspectRatio)
         const [ratioW, ratioH] = projectState.aspectRatio.split(':').map(Number)
         const baseHeight = RESOLUTIONS[resolution as keyof typeof RESOLUTIONS].height
         let outputWidth = Math.round(baseHeight * (ratioW / ratioH))

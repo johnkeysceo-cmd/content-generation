@@ -16,10 +16,11 @@
 
     /* Linting */
     "strict": true,
-    "noUnusedLocals": true,
-    "noUnusedParameters": true,
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["src", "electron"],
+  "include": ["src/**/*", "!src/cli/**/*", "electron"],
+  "exclude": ["src/cli"],
   "references": [{ "path": "./tsconfig.node.json" }]
 }

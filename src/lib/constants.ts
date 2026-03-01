@@ -111,6 +111,11 @@ export const DEFAULTS = {
     SPEED: { defaultValue: ZOOM.DEFAULT_SPEED },
     EASING: { defaultValue: ZOOM.DEFAULT_EASING },
     ZOOM_LEVEL: { min: 1, max: 3, step: 0.1, defaultValue: ZOOM.DEFAULT_LEVEL },
+    // NEW: Zoom Blur effect
+    ZOOM_BLUR: {
+      ENABLED: { defaultValue: true },
+      AMOUNT: { min: 0, max: 20, step: 0.5, defaultValue: 8 },
+    },
   },
   CURSOR: {
     THEME: { defaultValue: 'Default' },
@@ -134,6 +139,43 @@ export const DEFAULTS = {
       AMOUNT: { min: 0.5, max: 1.5, step: 0.05, defaultValue: 0.8 },
       DURATION: { min: 0.1, max: 1, step: 0.05, defaultValue: 0.4 },
       EASING: { defaultValue: 'Balanced' },
+    },
+    // ENHANCED: Cursor FX - Glow Effect
+    CURSOR_GLOW: {
+      ENABLED: { defaultValue: true },
+      COLOR: { defaultValue: 'rgba(59, 130, 246, 0.9)' },
+      SIZE: { min: 10, max: 100, step: 1, defaultValue: 50 },
+      INTENSITY: { min: 0.1, max: 2, step: 0.1, defaultValue: 1.5 },
+    },
+    // ENHANCED: Cursor FX - Motion Trail
+    MOTION_TRAIL: {
+      ENABLED: { defaultValue: true },
+      LENGTH: { min: 2, max: 30, step: 1, defaultValue: 15 },
+      OPACITY: { min: 0.1, max: 1, step: 0.05, defaultValue: 0.8 },
+    },
+    // ENHANCED: Cursor FX - Motion Blur (speed-based)
+    MOTION_BLUR: {
+      ENABLED: { defaultValue: true },
+      INTENSITY: { min: 0.1, max: 1, step: 0.05, defaultValue: 0.9 },
+      THRESHOLD: { min: 5, max: 50, step: 1, defaultValue: 8 },
+    },
+    // NEW: Automatic Swoosh FX
+    SWOOSH_EFFECT: {
+      ENABLED: { defaultValue: true },
+      INTENSITY: { min: 0.1, max: 1, step: 0.05, defaultValue: 0.8 },
+      THRESHOLD: { min: 10, max: 100, step: 1, defaultValue: 30 },
+    },
+    // NEW: Speed Lines FX
+    SPEED_LINES: {
+      ENABLED: { defaultValue: true },
+      INTENSITY: { min: 0.1, max: 1, step: 0.05, defaultValue: 0.7 },
+      THRESHOLD: { min: 20, max: 150, step: 1, defaultValue: 50 },
+    },
+    // NEW: Click Explosion FX
+    CLICK_EXPLOSION: {
+      ENABLED: { defaultValue: true },
+      INTENSITY: { min: 0.1, max: 1, step: 0.05, defaultValue: 0.8 },
+      PARTICLES: { min: 5, max: 30, step: 1, defaultValue: 15 },
     },
   },
 }

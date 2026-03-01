@@ -8,7 +8,7 @@ import type {
   CursorImageBitmap,
 } from '../../types'
 import type { MetaDataItem, ZoomRegion, CursorFrame } from '../../types'
-import { ZOOM } from '../../lib/constants'
+import { ZOOM, DEFAULTS } from '../../lib/constants'
 import { initialFrameState, recalculateCanvasDimensions } from './frameSlice'
 import { prepareCursorBitmaps } from '../../lib/utils'
 
@@ -85,6 +85,8 @@ function generateAutoZoomRegions(
         targetY: firstClick.y / geometry.height - 0.5,
         mode: 'auto',
         zIndex: 0,
+        blurEnabled: DEFAULTS.ANIMATION.ZOOM_BLUR.ENABLED.defaultValue,
+        blurAmount: DEFAULTS.ANIMATION.ZOOM_BLUR.AMOUNT.defaultValue,
       }
       return acc
     },

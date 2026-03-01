@@ -149,6 +149,57 @@ export function EditorPage() {
     return () => cleanup()
   }, [loadProject, initializePresets, initializeSettings])
 
+  // Handle batch processing commands from CLI
+  useEffect(() => {
+    const cleanupZoomRegions = window.electronAPI.onBatchSetZoomRegions((regions) => {
+      console.log('[Batch] Received zoom regions:', Object.keys(regions).length)
+      // Set zoom regions using store set method
+      useEditorStore.setState((state) => ({
+        zoomRegions: { ...state.zoomRegions, ...regions }
+      }))
+    })
+
+    const cleanupStartExport = window.electronAPI.onBatchStartExport(async (payload) => {
+      console.log('[Batch] Starting export:', payload.outputPath)
+      
+      // Get full project state from store
+      const fullState = useEditorStore.getState()
+      const plainState = {
+        platform: fullState.platform,
+        videoPath: fullState.videoPath,
+        metadata: fullState.metadata,
+        videoDimensions: fullState.videoDimensions,
+        duration: fullState.duration,
+        frameStyles: fullState.frameStyles,
+        aspectRatio: fullState.aspectRatio,
+        zoomRegions: fullState.zoomRegions,
+        cutRegions: fullState.cutRegions,
+        speedRegions: fullState.speedRegions,
+        webcamVideoPath: fullState.webcamVideoPath,
+        webcamPosition: fullState.webcamPosition,
+        webcamStyles: fullState.webcamStyles,
+        isWebcamVisible: fullState.isWebcamVisible,
+        recordingGeometry: fullState.recordingGeometry,
+        cursorImages: fullState.cursorImages,
+        cursorTheme: fullState.cursorTheme,
+        cursorStyles: fullState.cursorStyles,
+        syncOffset: fullState.syncOffset,
+      }
+
+      // Directly call the IPC to start export
+      await window.electronAPI.startExport({
+        projectState: plainState,
+        exportSettings: payload.exportSettings,
+        outputPath: payload.outputPath,
+      })
+    })
+
+    return () => {
+      cleanupZoomRegions()
+      cleanupStartExport()
+    }
+  }, [])
+
   const getPresetButtonContent = () => {
     switch (presetSaveStatus) {
       case 'saving':
@@ -265,7 +316,7 @@ export function EditorPage() {
             isPreviewFullScreen && 'hidden', // Hide SidePanel in fullscreen
           )}
         >
-          <SidePanel />
+          <SidePanel videoRef={videoRef} />
         </div>
         <div className="flex-1 flex flex-col overflow-hidden bg-background">
           <div

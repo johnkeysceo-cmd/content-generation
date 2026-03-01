@@ -6,34 +6,38 @@ import {
   Volume2 as MinVolume,
   Volume as MaxVolume,
   Volume3 as MuteVolume,
-  MicrophoneOff,
+  Music,
+  BrandSpotify,
+  Cut,
+  Loader2,
 } from 'tabler-icons-react'
 import { Collapse } from '../../ui/collapse'
 import { Slider } from '../../ui/slider'
 import { Button } from '../../ui/button'
 import { cn } from '../../../lib/utils'
 import { DEFAULTS } from '../../../lib/constants'
-
-const DisabledPanelPlaceholder = ({
-  icon,
-  title,
-  message,
-}: {
-  icon: React.ReactNode
-  title: string
-  message: string
-}) => (
-  <div className="flex flex-col items-center justify-center h-full text-center p-8 bg-muted/30">
-    <div className="w-16 h-16 rounded-full bg-background/60 flex items-center justify-center mb-4 border border-border">
-      {icon}
-    </div>
-    <h3 className="font-semibold text-foreground">{title}</h3>
-    <p className="text-sm text-muted-foreground mt-1 max-w-xs">{message}</p>
-  </div>
-)
+import { analyzeAudio, loadAudioFromFile } from '../../../lib/audio-utils'
+import { useCallback } from 'react'
 
 export function AudioSettings() {
-  const { volume, isMuted, setVolume, toggleMute, hasAudioTrack, setIsMuted } = useEditorStore(
+  const {
+    volume,
+    isMuted,
+    setVolume,
+    toggleMute,
+    hasAudioTrack,
+    setIsMuted,
+    beatAnalysisResult,
+    isAnalyzingAudio,
+    beatMatchingSettings,
+    setBeatAnalysisResult,
+    setIsAnalyzingAudio,
+    setBeatMatchingEnabled,
+    updateBeatMatchingSettings,
+    applyBeatMatchingToTimeline,
+    addCutRegion,
+    duration,
+  } = useEditorStore(
     useShallow((state) => ({
       volume: state.volume,
       isMuted: state.isMuted,
@@ -41,6 +45,17 @@ export function AudioSettings() {
       toggleMute: state.toggleMute,
       hasAudioTrack: state.hasAudioTrack,
       setIsMuted: state.setIsMuted,
+      beatAnalysisResult: state.beatAnalysisResult,
+      isAnalyzingAudio: state.isAnalyzingAudio,
+      beatMatchingEnabled: state.beatMatchingEnabled,
+      beatMatchingSettings: state.beatMatchingSettings,
+      setBeatAnalysisResult: state.setBeatAnalysisResult,
+      setIsAnalyzingAudio: state.setIsAnalyzingAudio,
+      setBeatMatchingEnabled: state.setBeatMatchingEnabled,
+      updateBeatMatchingSettings: state.updateBeatMatchingSettings,
+      applyBeatMatchingToTimeline: state.applyBeatMatchingToTimeline,
+      addCutRegion: state.addCutRegion,
+      duration: state.duration,
     })),
   )
 
@@ -50,6 +65,29 @@ export function AudioSettings() {
     setVolume(DEFAULTS.AUDIO.VOLUME.defaultValue)
     setIsMuted(DEFAULTS.AUDIO.MUTED.defaultValue)
   }
+
+  // Handle analyzing audio from a file
+  const handleAnalyzeAudio = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+
+    setIsAnalyzingAudio(true)
+    try {
+      const audioBuffer = await loadAudioFromFile(file)
+      const result = await analyzeAudio(audioBuffer)
+      setBeatAnalysisResult(result)
+    } catch (error) {
+      console.error('Failed to analyze audio:', error)
+    } finally {
+      setIsAnalyzingAudio(false)
+    }
+  }, [setIsAnalyzingAudio, setBeatAnalysisResult])
+
+  // Handle applying beat matching to timeline
+  const handleApplyBeatMatching = useCallback(() => {
+    applyBeatMatchingToTimeline(addCutRegion, duration)
+    setBeatMatchingEnabled(true)
+  }, [applyBeatMatchingToTimeline, addCutRegion, duration, setBeatMatchingEnabled])
 
   return (
     <div className="h-full flex flex-col">
@@ -68,14 +106,9 @@ export function AudioSettings() {
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto stable-scrollbar">
-        {!hasAudioTrack ? (
-          <DisabledPanelPlaceholder
-            icon={<MicrophoneOff className="w-8 h-8 text-muted-foreground" />}
-            title="No Audio Detected"
-            message="These settings are unavailable because the current video does not contain an audio track."
-          />
-        ) : (
-          <div className="p-6 space-y-6">
+        <div className="p-6 space-y-6">
+          {/* Master Volume - only show when video has audio */}
+          {hasAudioTrack && (
             <Collapse
               title="Master Volume"
               description="Control the overall volume of the video"
@@ -121,8 +154,112 @@ export function AudioSettings() {
                 </Button>
               </div>
             </Collapse>
-          </div>
-        )}
+          )}
+
+          {/* Beat Matching Section - always available */}
+          <Collapse
+            title="Beat Matching"
+            description="Auto-sync cuts to music beats"
+            icon={<Music className="w-4 h-4 text-primary" />}
+            defaultOpen={true}
+          >
+            <div className="space-y-4 pt-2">
+              {/* Upload audio file */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-foreground">Upload Audio File</label>
+                <input
+                  type="file"
+                  accept="audio/*"
+                  onChange={handleAnalyzeAudio}
+                  disabled={isAnalyzingAudio}
+                  className="w-full text-sm text-muted-foreground file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-primary-foreground hover:file:bg-primary/90"
+                />
+              </div>
+
+              {isAnalyzingAudio && (
+                <div className="flex items-center justify-center py-4">
+                  <Loader2 className="w-6 h-6 animate-spin text-primary" />
+                  <span className="ml-2 text-sm text-muted-foreground">Analyzing audio...</span>
+                </div>
+              )}
+
+              {beatAnalysisResult && !isAnalyzingAudio && (
+                <>
+                  {/* Show analysis results */}
+                  <div className="bg-muted/50 rounded-lg p-4 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <BrandSpotify className="w-4 h-4 text-primary" />
+                        <span className="text-sm font-medium">Detected BPM</span>
+                      </div>
+                      <span className="text-lg font-bold text-primary">{beatAnalysisResult.bpm}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-muted-foreground">Detected Beats</span>
+                      <span className="text-sm font-medium">{beatAnalysisResult.beats.length}</span>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-muted-foreground">Duration</span>
+                      <span className="text-sm font-medium">{beatAnalysisResult.duration.toFixed(1)}s</span>
+                    </div>
+                  </div>
+
+                  {/* Beat matching settings */}
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium">Cut Duration</span>
+                      <div className="w-24">
+                        <Slider
+                          min={0.1}
+                          max={1.0}
+                          step={0.05}
+                          value={beatMatchingSettings?.cutDuration || 0.3}
+                          onChange={(value) => updateBeatMatchingSettings({ cutDuration: value })}
+                        />
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium">Min Interval</span>
+                      <div className="w-24">
+                        <Slider
+                          min={0.2}
+                          max={2.0}
+                          step={0.1}
+                          value={beatMatchingSettings?.minInterval || 0.5}
+                          onChange={(value) => updateBeatMatchingSettings({ minInterval: value })}
+                        />
+                      </div>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium">Beat Threshold</span>
+                      <div className="w-24">
+                        <Slider
+                          min={0.1}
+                          max={0.8}
+                          step={0.05}
+                          value={beatMatchingSettings?.beatStrengthThreshold || 0.3}
+                          onChange={(value) => updateBeatMatchingSettings({ beatStrengthThreshold: value })}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Apply button */}
+                  <Button
+                    onClick={handleApplyBeatMatching}
+                    className={cn(
+                      'w-full h-11 font-semibold transition-all duration-300',
+                      'bg-primary hover:bg-primary/90 text-primary-foreground',
+                    )}
+                  >
+                    <Cut className="w-4 h-4 mr-2" />
+                    Apply Beat Cuts
+                  </Button>
+                </>
+              )}
+            </div>
+          </Collapse>
+        </div>
       </div>
     </div>
   )

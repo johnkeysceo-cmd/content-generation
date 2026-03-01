@@ -32,50 +32,115 @@ export const findLastMetadataIndex = (metadata: MetaDataItem[], currentTime: num
   return result
 }
 
+// ============================================================
+// STABLE SMOOTHING SYSTEM WITH HOLD FREEZE
+// ============================================================
+
+interface SimpleState {
+  // EMA cursor smoothing
+  smoothedX: number
+  smoothedY: number
+  initialized: boolean
+  
+  // Smoothed target for zoom
+  zoomTargetX: number
+  zoomTargetY: number
+  
+  // Camera follow state
+  panX: number
+  panY: number
+  
+  // Hold freeze - stops micro-bounce
+  holdFrozen: boolean
+  lastStableX: number
+  lastStableY: number
+  stableSince: number
+}
+
+// Persistent state across frames
+let simpleState: SimpleState = {
+  smoothedX: 0,
+  smoothedY: 0,
+  initialized: false,
+  zoomTargetX: 0,
+  zoomTargetY: 0,
+  panX: 0,
+  panY: 0,
+  holdFrozen: false,
+  lastStableX: 0,
+  lastStableY: 0,
+  stableSince: 0,
+}
+
 /**
- * Calculates a smoothed mouse position at a given time using Exponential Moving Average (EMA).
- * This prevents jerky panning by smoothing out rapid mouse movements.
+ * Resets all state for a new playback session
+ */
+export function resetCameraState(): void {
+  simpleState = {
+    smoothedX: 0,
+    smoothedY: 0,
+    initialized: false,
+    zoomTargetX: 0,
+    zoomTargetY: 0,
+    panX: 0,
+    panY: 0,
+    holdFrozen: false,
+    lastStableX: 0,
+    lastStableY: 0,
+    stableSince: 0,
+  }
+}
+
+/**
+ * Gets smoothed mouse position using simple EMA
  */
 function getSmoothedMousePosition(
   metadata: MetaDataItem[],
   targetTime: number,
-  smoothingFactor = 0.1,
 ): { x: number; y: number } | null {
   const endIndex = findLastMetadataIndex(metadata, targetTime)
   if (endIndex < 0) return null
 
-  // Start smoothing from a bit before the target time to build up the average
-  const startTime = Math.max(0, targetTime - 0.5)
-  let startIndex = findLastMetadataIndex(metadata, startTime)
-  if (startIndex < 0) startIndex = 0
+  const targetEvent = metadata[endIndex]
+  const rawX = targetEvent.x
+  const rawY = targetEvent.y
 
-  if (startIndex >= metadata.length) return null
-
-  let smoothedX = metadata[startIndex].x
-  let smoothedY = metadata[startIndex].y
-
-  for (let i = startIndex + 1; i <= endIndex; i++) {
-    smoothedX = lerp(smoothedX, metadata[i].x, smoothingFactor)
-    smoothedY = lerp(smoothedY, metadata[i].y, smoothingFactor)
+  // Initialize on first call
+  if (!simpleState.initialized) {
+    simpleState.smoothedX = rawX
+    simpleState.smoothedY = rawY
+    simpleState.zoomTargetX = rawX
+    simpleState.zoomTargetY = rawY
+    simpleState.lastStableX = rawX
+    simpleState.lastStableY = rawY
+    simpleState.stableSince = Date.now()
+    simpleState.initialized = true
+    return { x: rawX, y: rawY }
   }
 
-  // Final interpolation for sub-frame accuracy
-  const lastEvent = metadata[endIndex]
+  // Simple EMA smoothing with factor 0.18
+  const emaFactor = 0.18
+  simpleState.smoothedX = lerp(simpleState.smoothedX, rawX, emaFactor)
+  simpleState.smoothedY = lerp(simpleState.smoothedY, rawY, emaFactor)
+
+  // Smooth the target: prevents tiny cursor noise from propagating
+  const targetFactor = 0.25
+  simpleState.zoomTargetX += (simpleState.smoothedX - simpleState.zoomTargetX) * targetFactor
+  simpleState.zoomTargetY += (simpleState.smoothedY - simpleState.zoomTargetY) * targetFactor
+
+  // Interpolate between events for sub-frame accuracy
   if (endIndex + 1 < metadata.length) {
     const nextEvent = metadata[endIndex + 1]
-    const timeDiff = nextEvent.timestamp - lastEvent.timestamp
-    if (timeDiff > 0) {
-      const progress = (targetTime - lastEvent.timestamp) / timeDiff
-      const finalX = lerp(smoothedX, nextEvent.x, smoothingFactor)
-      const finalY = lerp(smoothedY, nextEvent.y, smoothingFactor)
-      return {
-        x: lerp(smoothedX, finalX, progress),
-        y: lerp(smoothedY, finalY, progress),
-      }
+    const timeDiff = nextEvent.timestamp - targetEvent.timestamp
+    if (timeDiff > 0 && timeDiff < 0.1) {
+      const progress = (targetTime - targetEvent.timestamp) / timeDiff
+      const interpolatedX = lerp(simpleState.zoomTargetX, nextEvent.x, progress * 0.2)
+      const interpolatedY = lerp(simpleState.zoomTargetY, nextEvent.y, progress * 0.2)
+      return { x: interpolatedX, y: interpolatedY }
     }
   }
 
-  return { x: smoothedX, y: smoothedY }
+  return { x: simpleState.zoomTargetX, y: simpleState.zoomTargetY }
 }
 
 /**
@@ -130,7 +195,7 @@ export const calculateZoomTransform = (
   metadata: MetaDataItem[],
   recordingGeometry: { width: number; height: number },
   frameContentDimensions: { width: number; height: number },
-): { scale: number; translateX: number; translateY: number; transformOrigin: string } => {
+): { scale: number; translateX: number; translateY: number; transformOrigin: string; blur: number } => {
   const activeRegion = Object.values(zoomRegions).find(
     (r) => currentTime >= r.startTime && currentTime < r.startTime + r.duration,
   )
@@ -140,11 +205,14 @@ export const calculateZoomTransform = (
     translateX: 0,
     translateY: 0,
     transformOrigin: '50% 50%',
+    blur: 0,
   }
 
-  if (!activeRegion) return defaultTransform
+  if (!activeRegion) {
+    return defaultTransform
+  }
 
-  const { startTime, duration, zoomLevel, targetX, targetY, mode, easing, transitionDuration } = activeRegion
+  const { startTime, duration, zoomLevel, targetX, targetY, mode, easing, transitionDuration, blurEnabled, blurAmount } = activeRegion
   const zoomOutStartTime = startTime + duration - transitionDuration
   const zoomInEndTime = startTime + transitionDuration
 
@@ -154,46 +222,97 @@ export const calculateZoomTransform = (
   let currentScale = 1
   let currentTranslateX = 0
   let currentTranslateY = 0
+  let currentBlur = 0
 
-  // --- Calculate Pan Targets ---
-  // let initialPan = { tx: 0, ty: 0 }
+  // Calculate pan targets using smoothed cursor
   let livePan = { tx: 0, ty: 0 }
   let finalPan = { tx: 0, ty: 0 }
 
   if (mode === 'auto' && metadata.length > 0 && recordingGeometry.width > 0) {
-    // Pan target for the end of the zoom-in transition (STATIONARY)
-    // const initialMousePos = getSmoothedMousePosition(metadata, zoomInEndTime)
-    // initialPan = calculateBoundedPan(initialMousePos, fixedOrigin, zoomLevel, recordingGeometry, frameContentDimensions)
-
-    // Live pan target for the hold phase (DYNAMIC)
+    // Get smoothed mouse position
     const liveMousePos = getSmoothedMousePosition(metadata, currentTime)
     livePan = calculateBoundedPan(liveMousePos, fixedOrigin, zoomLevel, recordingGeometry, frameContentDimensions)
 
-    // Pan target for the start of the zoom-out transition (STATIONARY)
+    // Get final mouse position for zoom-out
     const finalMousePos = getSmoothedMousePosition(metadata, zoomOutStartTime)
     finalPan = calculateBoundedPan(finalMousePos, fixedOrigin, zoomLevel, recordingGeometry, frameContentDimensions)
   }
 
-  // --- Determine current transform based on phase ---
-
-  // Phase 1: ZOOM-IN (No panning, just move towards initial pan position)
+  // Phase 1: ZOOM-IN
   if (currentTime >= startTime && currentTime < zoomInEndTime) {
-    console.log('is being zoom-in')
     const t = (EASING_MAP[easing as keyof typeof EASING_MAP] || EASING_MAP.Balanced)(
       (currentTime - startTime) / transitionDuration,
     )
     currentScale = lerp(1, zoomLevel, t)
-    // currentTranslateX = lerp(0, initialPan.tx, t)
-    // currentTranslateY = lerp(0, initialPan.ty, t)
+    
+    // NEW: Calculate blur during zoom-in (fades out as we reach full zoom)
+    if (blurEnabled) {
+      const blurProgress = 1 - t // 1 at start, 0 at end of zoom-in
+      currentBlur = blurAmount * blurProgress * 0.5
+    }
+    
+    // Reset pan and hold state during zoom-in
+    simpleState.panX = 0
+    simpleState.panY = 0
+    simpleState.holdFrozen = false
+    simpleState.lastStableX = 0
+    simpleState.lastStableY = 0
   }
-  // Phase 2: PAN/HOLD (Fully zoomed in, pan follows smoothed mouse)
+  // Phase 2: HOLD (with proper freeze to prevent micro-bounce)
   else if (currentTime >= zoomInEndTime && currentTime < zoomOutStartTime) {
-    console.log('is being pan/hold')
     currentScale = zoomLevel
-    currentTranslateX = livePan.tx
-    currentTranslateY = livePan.ty
+    // No blur during hold phase
+    currentBlur = 0
+
+    // Calculate distance from center to determine if we should move
+    const holdThreshold = 40
+    const centerX = frameContentDimensions.width / 2
+    const centerY = frameContentDimensions.height / 2
+
+    // Get current smoothed position
+    const mousePos = getSmoothedMousePosition(metadata, currentTime)
+    
+    if (mousePos) {
+      const mouseFrameX = (mousePos.x / recordingGeometry.width) * frameContentDimensions.width
+      const mouseFrameY = (mousePos.y / recordingGeometry.height) * frameContentDimensions.height
+      
+      const distFromCenter = Math.sqrt(
+        Math.pow(mouseFrameX - centerX, 2) + 
+        Math.pow(mouseFrameY - centerY, 2)
+      )
+      
+      // Calculate stability - has cursor moved significantly?
+      const moveThreshold = 15 // pixels
+      const dx = mousePos.x - simpleState.lastStableX
+      const dy = mousePos.y - simpleState.lastStableY
+      const moved = Math.sqrt(dx * dx + dy * dy) > moveThreshold
+      
+      if (moved) {
+        // Cursor moved - update stable position and unfreeze
+        simpleState.lastStableX = mousePos.x
+        simpleState.lastStableY = mousePos.y
+        simpleState.stableSince = Date.now()
+        simpleState.holdFrozen = false
+      } else {
+        // Cursor stable - freeze after brief period to prevent micro-bounce
+        const stableTime = Date.now() - simpleState.stableSince
+        if (stableTime > 100 && distFromCenter < holdThreshold) {
+          // Been stable for 100ms and near center - freeze!
+          simpleState.holdFrozen = true
+        }
+      }
+    }
+
+    // Only update pan if not frozen
+    if (!simpleState.holdFrozen) {
+      simpleState.panX += (livePan.tx - simpleState.panX) * 0.22
+      simpleState.panY += (livePan.ty - simpleState.panY) * 0.22
+    }
+
+    currentTranslateX = simpleState.panX
+    currentTranslateY = simpleState.panY
   }
-  // Phase 3: ZOOM-OUT (No panning, move from final pan position back to center)
+  // Phase 3: ZOOM-OUT
   else if (currentTime >= zoomOutStartTime && currentTime <= startTime + duration) {
     const t = (EASING_MAP[easing as keyof typeof EASING_MAP] || EASING_MAP.Balanced)(
       (currentTime - zoomOutStartTime) / transitionDuration,
@@ -201,7 +320,26 @@ export const calculateZoomTransform = (
     currentScale = lerp(zoomLevel, 1, t)
     currentTranslateX = lerp(finalPan.tx, 0, t)
     currentTranslateY = lerp(finalPan.ty, 0, t)
+    
+    // NEW: Calculate blur during zoom-out (fades in as we zoom out)
+    if (blurEnabled) {
+      const blurProgress = t // 0 at start, 1 at end of zoom-out
+      currentBlur = blurAmount * blurProgress * 0.5
+    }
+    
+    // Reset hold during zoom-out
+    simpleState.holdFrozen = false
   }
 
-  return { scale: currentScale, translateX: currentTranslateX, translateY: currentTranslateY, transformOrigin }
+  // Only snap if extremely small (less than 0.01 px) to prevent subpixel shake
+  if (Math.abs(currentTranslateX) < 0.01) currentTranslateX = 0
+  if (Math.abs(currentTranslateY) < 0.01) currentTranslateY = 0
+
+  return { 
+    scale: currentScale, 
+    translateX: currentTranslateX, 
+    translateY: currentTranslateY, 
+    transformOrigin,
+    blur: currentBlur,
+  }
 }

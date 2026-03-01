@@ -15,6 +15,31 @@ const initialCursorStyles: CursorStyles = {
   clickScaleAmount: DEFAULTS.CURSOR.CLICK_SCALE.AMOUNT.defaultValue,
   clickScaleDuration: DEFAULTS.CURSOR.CLICK_SCALE.DURATION.defaultValue,
   clickScaleEasing: DEFAULTS.CURSOR.CLICK_SCALE.EASING.defaultValue,
+  // ENHANCED: Cursor FX - Glow Effect (now enabled by default)
+  cursorGlowEffect: DEFAULTS.CURSOR.CURSOR_GLOW.ENABLED.defaultValue,
+  cursorGlowColor: DEFAULTS.CURSOR.CURSOR_GLOW.COLOR.defaultValue,
+  cursorGlowSize: DEFAULTS.CURSOR.CURSOR_GLOW.SIZE.defaultValue,
+  cursorGlowIntensity: DEFAULTS.CURSOR.CURSOR_GLOW.INTENSITY.defaultValue,
+  // ENHANCED: Cursor FX - Motion Trail (now enabled by default)
+  cursorMotionTrail: DEFAULTS.CURSOR.MOTION_TRAIL.ENABLED.defaultValue,
+  motionTrailLength: DEFAULTS.CURSOR.MOTION_TRAIL.LENGTH.defaultValue,
+  motionTrailOpacity: DEFAULTS.CURSOR.MOTION_TRAIL.OPACITY.defaultValue,
+  // ENHANCED: Cursor FX - Motion Blur (now enabled by default)
+  cursorMotionBlur: DEFAULTS.CURSOR.MOTION_BLUR.ENABLED.defaultValue,
+  motionBlurIntensity: DEFAULTS.CURSOR.MOTION_BLUR.INTENSITY.defaultValue,
+  motionBlurThreshold: DEFAULTS.CURSOR.MOTION_BLUR.THRESHOLD.defaultValue,
+  // NEW: Automatic Swoosh FX
+  swooshEffect: DEFAULTS.CURSOR.SWOOSH_EFFECT.ENABLED.defaultValue,
+  swooshIntensity: DEFAULTS.CURSOR.SWOOSH_EFFECT.INTENSITY.defaultValue,
+  swooshThreshold: DEFAULTS.CURSOR.SWOOSH_EFFECT.THRESHOLD.defaultValue,
+  // NEW: Speed Lines FX
+  speedLines: DEFAULTS.CURSOR.SPEED_LINES.ENABLED.defaultValue,
+  speedLinesIntensity: DEFAULTS.CURSOR.SPEED_LINES.INTENSITY.defaultValue,
+  speedLinesThreshold: DEFAULTS.CURSOR.SPEED_LINES.THRESHOLD.defaultValue,
+  // NEW: Click Explosion FX
+  clickExplosion: DEFAULTS.CURSOR.CLICK_EXPLOSION.ENABLED.defaultValue,
+  clickExplosionIntensity: DEFAULTS.CURSOR.CLICK_EXPLOSION.INTENSITY.defaultValue,
+  clickExplosionParticles: DEFAULTS.CURSOR.CLICK_EXPLOSION.PARTICLES.defaultValue,
 }
 
 export const initialUIState: UIState = {

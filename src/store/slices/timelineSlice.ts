@@ -1,4 +1,4 @@
-import { TIMELINE, ZOOM } from '../../lib/constants'
+import { TIMELINE, ZOOM, DEFAULTS } from '../../lib/constants'
 import type { TimelineState, TimelineActions, Slice } from '../../types'
 import type { CutRegion, ZoomRegion, SpeedRegion } from '../../types'
 
@@ -68,6 +68,9 @@ export const createTimelineSlice: Slice<TimelineState, TimelineActions> = (set, 
       targetY: lastMousePos && recordingGeometry ? lastMousePos.y / recordingGeometry.height - 0.5 : 0,
       mode: 'auto',
       zIndex: 0,
+      // NEW: Blur effect during zoom
+      blurEnabled: DEFAULTS.ANIMATION.ZOOM_BLUR.ENABLED.defaultValue,
+      blurAmount: DEFAULTS.ANIMATION.ZOOM_BLUR.AMOUNT.defaultValue,
     }
 
     if (newRegion.startTime + newRegion.duration > duration) {

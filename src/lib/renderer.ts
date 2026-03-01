@@ -202,7 +202,7 @@ export const drawScene = async (
   // --- 3. Main video frame transform and drawing ---
   ctx.save()
 
-  const { scale, translateX, translateY, transformOrigin } = calculateZoomTransform(
+  const { scale, translateX, translateY, transformOrigin, blur } = calculateZoomTransform(
     currentTime,
     state.zoomRegions,
     state.metadata,
@@ -216,6 +216,9 @@ export const drawScene = async (
   const originPxX = originXMul * frameContentWidth
   const originPxY = originYMul * frameContentHeight
 
+  // STABLE RENDER: Use setTransform once per frame to avoid floating-point drift
+  // ctx.setTransform(scale, 0, 0, scale, panX, panY)
+  // Transform order: translate to frame → scale from origin → translate
   ctx.translate(frameX, frameY)
   ctx.translate(originPxX, originPxY)
   ctx.scale(scale, scale)
@@ -243,7 +246,18 @@ export const drawScene = async (
   const path = new Path2D()
   path.roundRect(0, 0, frameContentWidth, frameContentHeight, borderRadius)
   ctx.clip(path)
+  
+  // NEW: Apply blur effect during zoom transitions
+  if (blur > 0) {
+    ctx.filter = `blur(${blur}px)`
+  }
+  
   ctx.drawImage(videoElement, 0, 0, frameContentWidth, frameContentHeight)
+  
+  // Reset filter after drawing video
+  if (blur > 0) {
+    ctx.filter = 'none'
+  }
 
   // Draw border on top of the video content
   if (borderWidth > 0) {
@@ -288,7 +302,7 @@ export const drawScene = async (
     }
   }
 
-  // --- 5. Draw Cursor ---
+  // --- 5. Draw ENHANCED Cursor with ALL FX ---
   const lastEventIndex = findLastMetadataIndex(state.metadata, currentTime)
 
   if (state.cursorStyles.showCursor && lastEventIndex > -1 && state.recordingGeometry) {
@@ -302,9 +316,178 @@ export const drawScene = async (
         const drawX = Math.round(cursorX - cursorData.xhot)
         const drawY = Math.round(cursorY - cursorData.yhot)
 
+        // === ENHANCED Motion Trail Effect ===
+        if (state.cursorStyles.cursorMotionTrail && state.cursorStyles.motionTrailLength > 0) {
+          const trailLength = Math.min(state.cursorStyles.motionTrailLength * 2, 30)
+          const trailOpacity = state.cursorStyles.motionTrailOpacity
+
+          const recentMoveEvents = state.metadata
+            .filter(
+              (e) =>
+                e.type === 'move' &&
+                e.timestamp < event.timestamp &&
+                e.timestamp > event.timestamp - 0.15,
+            )
+            .slice(-trailLength)
+
+          for (let i = 0; i < recentMoveEvents.length; i++) {
+            const trailEvent = recentMoveEvents[i]
+            const trailProgress = i / recentMoveEvents.length
+            const trailAlpha = trailOpacity * (1 - Math.pow(trailProgress, 0.7))
+
+            const trailX = (trailEvent.x / state.recordingGeometry.width) * frameContentWidth
+            const trailY = (trailEvent.y / state.recordingGeometry.height) * frameContentHeight
+            const trailDrawX = Math.round(trailX - cursorData.xhot)
+            const trailDrawY = Math.round(trailY - cursorData.yhot)
+
+            ctx.save()
+            ctx.globalAlpha = trailAlpha
+            ctx.filter = `blur(${1 + trailProgress * 4}px)`
+            ctx.drawImage(cursorData.imageBitmap, trailDrawX, trailDrawY)
+            ctx.restore()
+          }
+        }
+
+        // === ENHANCED Motion Blur Effect ===
+        if (state.cursorStyles.cursorMotionBlur && state.cursorStyles.motionBlurIntensity > 0) {
+          const { motionBlurIntensity, motionBlurThreshold } = state.cursorStyles
+
+          const prevMoveEvent = state.metadata
+            .filter(
+              (e) =>
+                e.type === 'move' &&
+                e.timestamp < event.timestamp &&
+                e.timestamp > event.timestamp - 0.05,
+            )
+            .pop()
+
+          if (prevMoveEvent) {
+            const dx = event.x - prevMoveEvent.x
+            const dy = event.y - prevMoveEvent.y
+            const speed = Math.sqrt(dx * dx + dy * dy)
+
+            if (speed > motionBlurThreshold) {
+              const blurAmount = Math.min(speed * 0.1 * motionBlurIntensity, 40)
+              const angle = Math.atan2(dy, dx)
+
+              ctx.save()
+              ctx.translate(drawX + cursorData.xhot, drawY + cursorData.yhot)
+              ctx.rotate(angle)
+              ctx.globalAlpha = 0.5 * motionBlurIntensity
+
+              for (let i = 1; i <= 6; i++) {
+                const streakLength = blurAmount * i * 0.35
+                ctx.globalAlpha = 0.3 * motionBlurIntensity * (1 - i * 0.15)
+                ctx.drawImage(
+                  cursorData.imageBitmap,
+                  -cursorData.xhot - streakLength,
+                  -cursorData.yhot,
+                  cursorData.width,
+                  cursorData.height,
+                )
+              }
+
+              ctx.restore()
+            }
+          }
+        }
+
+        // === NEW: Speed Lines Effect ===
+        if (state.cursorStyles.speedLines && state.cursorStyles.speedLinesIntensity > 0) {
+          const { speedLinesIntensity, speedLinesThreshold } = state.cursorStyles
+          
+          const speedMoveEvent = state.metadata
+            .filter(
+              (e) =>
+                e.type === 'move' &&
+                e.timestamp < event.timestamp &&
+                e.timestamp > event.timestamp - 0.03,
+            )
+            .pop()
+
+          if (speedMoveEvent) {
+            const dx = event.x - speedMoveEvent.x
+            const dy = event.y - speedMoveEvent.y
+            const speed = Math.sqrt(dx * dx + dy * dy)
+
+            if (speed > speedLinesThreshold) {
+              const angle = Math.atan2(dy, dx)
+              const numLines = Math.floor(5 + speedLinesIntensity * 8)
+              
+              ctx.save()
+              ctx.translate(cursorX, cursorY)
+              ctx.rotate(angle)
+              
+              for (let i = 0; i < numLines; i++) {
+                const lineLength = 20 + Math.random() * 40 * speedLinesIntensity
+                const lineOffset = (i - numLines / 2) * 8
+                const alpha = (0.3 + Math.random() * 0.4) * speedLinesIntensity
+                
+                ctx.strokeStyle = `rgba(255, 255, 255, ${alpha})`
+                ctx.lineWidth = 1 + Math.random() * 2
+                ctx.beginPath()
+                ctx.moveTo(-10, lineOffset)
+                ctx.lineTo(-10 - lineLength, lineOffset)
+                ctx.stroke()
+              }
+              
+              ctx.restore()
+            }
+          }
+        }
+
+        // === NEW: Swoosh Effect ===
+        if (state.cursorStyles.swooshEffect && state.cursorStyles.swooshIntensity > 0) {
+          const { swooshIntensity, swooshThreshold } = state.cursorStyles
+          
+          const swooshMoveEvents = state.metadata
+            .filter(
+              (e) =>
+                e.type === 'move' &&
+                e.timestamp < event.timestamp &&
+                e.timestamp > event.timestamp - 0.08,
+            )
+            .slice(-3)
+          
+          if (swooshMoveEvents.length >= 2) {
+            const first = swooshMoveEvents[0]
+            const last = swooshMoveEvents[swooshMoveEvents.length - 1]
+            const dx = last.x - first.x
+            const dy = last.y - first.y
+            const speed = Math.sqrt(dx * dx + dy * dy)
+
+            if (speed > swooshThreshold) {
+              const startX = (first.x / state.recordingGeometry.width) * frameContentWidth
+              const startY = (first.y / state.recordingGeometry.height) * frameContentHeight
+              const angle = Math.atan2(dy, dx)
+              
+              ctx.save()
+              ctx.translate(startX, startY)
+              ctx.rotate(angle)
+              
+              // Draw swoosh arc
+              const swooshLength = speed * 0.8 * swooshIntensity
+              const gradient = ctx.createLinearGradient(0, 0, -swooshLength, 0)
+              gradient.addColorStop(0, `rgba(255, 255, 255, ${0.6 * swooshIntensity})`)
+              gradient.addColorStop(0.5, `rgba(200, 220, 255, ${0.3 * swooshIntensity})`)
+              gradient.addColorStop(1, 'rgba(255, 255, 255, 0)')
+              
+              ctx.strokeStyle = gradient
+              ctx.lineWidth = 8 * swooshIntensity
+              ctx.lineCap = 'round'
+              ctx.beginPath()
+              ctx.moveTo(0, 0)
+              ctx.quadraticCurveTo(-swooshLength * 0.5, 15 * swooshIntensity, -swooshLength, 0)
+              ctx.stroke()
+              
+              ctx.restore()
+            }
+          }
+        }
+
         ctx.save()
 
-        // Handle click scale animation
+        // Handle click scale animation - MORE DRAMATIC
         let cursorScale = 1
         if (state.cursorStyles.clickScaleEffect) {
           const { clickScaleDuration, clickScaleAmount, clickScaleEasing } = state.cursorStyles
@@ -322,15 +505,45 @@ export const drawScene = async (
             const progress = (currentTime - mostRecentClick.timestamp) / clickScaleDuration
             const easingFn = EASING_MAP[clickScaleEasing as keyof typeof EASING_MAP] || EASING_MAP.Balanced
             const easedProgress = easingFn(progress)
-            const scaleValue = 1 - (1 - clickScaleAmount) * Math.sin(easedProgress * Math.PI)
+            // More dramatic bounce effect
+            const bounceEffect = Math.sin(easedProgress * Math.PI * 2) * 0.15
+            const scaleValue = 1 - (1 - clickScaleAmount) * Math.sin(easedProgress * Math.PI) + bounceEffect
             cursorScale = scaleValue
           }
         }
 
-        // Apply drop shadow
+        // Apply drop shadow - STRONGER
         const { shadowBlur, shadowOffsetX, shadowOffsetY, shadowColor } = state.cursorStyles
         if (shadowBlur > 0 || shadowOffsetX !== 0 || shadowOffsetY !== 0) {
-          ctx.filter = `drop-shadow(${shadowOffsetX}px ${shadowOffsetY}px ${shadowBlur}px ${shadowColor})`
+          ctx.filter = `drop-shadow(${shadowOffsetX * 1.5}px ${shadowOffsetY * 1.5}px ${shadowBlur * 2}px ${shadowColor})`
+        }
+
+        // === ENHANCED Cursor Glow Effect ===
+        if (state.cursorStyles.cursorGlowEffect && state.cursorStyles.cursorGlowSize > 0) {
+          const { cursorGlowColor, cursorGlowSize, cursorGlowIntensity } = state.cursorStyles
+
+          const glowColorResult = /rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)/.exec(cursorGlowColor)
+          if (glowColorResult) {
+            // Multiple glow layers
+            for (let i = 5; i >= 1; i--) {
+              const layerSize = cursorGlowSize * i * 0.35 * cursorGlowIntensity
+              const layerAlpha = 0.25 * cursorGlowIntensity * (1 - i * 0.12)
+
+              ctx.save()
+              ctx.globalAlpha = layerAlpha
+              ctx.filter = `blur(${layerSize * 0.6}px)`
+              ctx.drawImage(cursorData.imageBitmap, drawX, drawY)
+              ctx.restore()
+            }
+            
+            // Outer halo
+            ctx.save()
+            ctx.globalAlpha = 0.2 * cursorGlowIntensity
+            ctx.filter = `blur(${cursorGlowSize * cursorGlowIntensity * 1.5}px)`
+            ctx.globalCompositeOperation = 'screen'
+            ctx.drawImage(cursorData.imageBitmap, drawX, drawY)
+            ctx.restore()
+          }
         }
 
         // Apply scale transform if needed
@@ -343,6 +556,46 @@ export const drawScene = async (
         }
 
         ctx.drawImage(cursorData.imageBitmap, drawX, drawY)
+        ctx.restore()
+      }
+    }
+  }
+
+  // === NEW: Click Explosion Effect ===
+  if (state.cursorStyles.clickExplosion && state.recordingGeometry) {
+    const { clickExplosionIntensity, clickExplosionParticles } = state.cursorStyles
+    
+    const recentClicks = state.metadata.filter(
+      (e) =>
+        e.type === 'click' &&
+        e.pressed &&
+        currentTime >= e.timestamp &&
+        currentTime < e.timestamp + 0.4,
+    )
+
+    for (const click of recentClicks) {
+      const progress = (currentTime - click.timestamp) / 0.4
+      if (progress < 1) {
+        const clickX = (click.x / state.recordingGeometry.width) * frameContentWidth
+        const clickY = (click.y / state.recordingGeometry.height) * frameContentHeight
+        
+        const particles = Math.floor(clickExplosionParticles * (1 - progress))
+        const explosionRadius = progress * 60 * clickExplosionIntensity
+        
+        ctx.save()
+        for (let i = 0; i < particles; i++) {
+          const angle = (i / particles) * Math.PI * 2 + progress * 2
+          const distance = explosionRadius * (0.3 + Math.random() * 0.7)
+          const px = clickX + Math.cos(angle) * distance
+          const py = clickY + Math.sin(angle) * distance
+          const size = 2 + Math.random() * 4 * (1 - progress)
+          const alpha = (0.8 - progress) * clickExplosionIntensity
+          
+          ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`
+          ctx.beginPath()
+          ctx.arc(px, py, size, 0, Math.PI * 2)
+          ctx.fill()
+        }
         ctx.restore()
       }
     }
@@ -538,4 +791,8 @@ export const drawScene = async (
     ctx.drawImage(webcamVideo, sx, sy, sWidth, sHeight, drawX, webcamY, webcamWidth, webcamHeight)
     ctx.restore()
   }
+
+  // --- 7. Draw Vignette Effect (AI Demo Look) ---
+  // Vignette effect is disabled - properties not in FrameStyles
+  // TODO: Add vignetteEnabled, vignetteIntensity, vignetteColor to FrameStyles type
 }

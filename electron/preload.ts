@@ -204,6 +204,17 @@ export const electronAPI = {
   updateTitleBarOverlay: (options: { color: string; symbolColor: string }) => {
     ipcRenderer.send('window:update-title-bar-overlay', options)
   },
+  // --- Batch Processing ---
+  onBatchSetZoomRegions: (callback: (regions: any) => void) => {
+    const listener = (_event: IpcRendererEvent, regions: any) => callback(regions)
+    ipcRenderer.on('batch:setZoomRegions', listener)
+    return () => ipcRenderer.removeListener('batch:setZoomRegions', listener)
+  },
+  onBatchStartExport: (callback: (payload: { outputPath: string; exportSettings: any }) => void) => {
+    const listener = (_event: IpcRendererEvent, payload: { outputPath: string; exportSettings: any }) => callback(payload)
+    ipcRenderer.on('batch:startExport', listener)
+    return () => ipcRenderer.removeListener('batch:startExport', listener)
+  },
   // --- END OF CHANGES ---
   getVersion: (): Promise<string> => ipcRenderer.invoke('app:getVersion'),
   getPlatform: (): Promise<NodeJS.Platform> => ipcRenderer.invoke('app:getPlatform'),

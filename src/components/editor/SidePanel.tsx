@@ -1,6 +1,6 @@
 import { useEditorStore } from '../../store/editorStore'
 import { RegionSettingsPanel } from './RegionSettingsPanel'
-import { Microphone, DeviceComputerCamera, LayoutBoard, Route, Pointer } from 'tabler-icons-react'
+import { Microphone, DeviceComputerCamera, LayoutBoard, Route, Pointer, Star, Wand } from 'tabler-icons-react'
 import { BackgroundSettings } from './sidepanel/BackgroundSettings'
 import { FrameEffectsSettings } from './sidepanel/FrameEffectsSettings'
 import { CameraSettings } from './sidepanel/CameraSettings'
@@ -11,6 +11,13 @@ import { useEffect, useMemo } from 'react'
 import { cn } from '../../lib/utils'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '../ui/tooltip'
 import { AudioSettings } from './sidepanel/AudioSettings'
+import { AIZoomSettingsPanel } from './sidepanel/AIZoomSettings'
+import { ProductionPanel } from './sidepanel/ProductionPanel'
+import type { ZoomRegion } from '../../types'
+
+interface SidePanelProps {
+  videoRef?: React.RefObject<HTMLVideoElement | null>
+}
 
 interface TabButtonProps {
   label: string
@@ -62,14 +69,12 @@ function FrameSettingsPanel() {
           </div>
           <div>
             <h2 className="text-lg font-semibold text-sidebar-foreground">General Settings</h2>
-            <p className="text-sm text-muted-foreground">Customize your video&apos;s appearance</p>
+            <p className="text-sm text-muted-foreground">Customize your video's appearance</p>
           </div>
         </div>
       </div>
       {/* Content */}
       <div className="flex-1 overflow-y-auto stable-scrollbar">
-        {' '}
-        {/* MODIFIED HERE */}
         <div className="p-6 space-y-8">
           <BackgroundSettings />
           <FrameEffectsSettings />
@@ -79,17 +84,18 @@ function FrameSettingsPanel() {
   )
 }
 
-export function SidePanel() {
+export function SidePanel({ videoRef }: SidePanelProps) {
   // Get necessary states from the store
   const {
     selectedRegionId,
     zoomRegions,
     cutRegions,
     webcamVideoUrl,
-    hasAudioTrack,
     setSelectedRegionId,
     activeSidePanelTab,
     setActiveSidePanelTab,
+    metadata,
+    duration,
   } = useEditorStore(
     useShallow((state) => ({
       selectedRegionId: state.selectedRegionId,
@@ -100,8 +106,38 @@ export function SidePanel() {
       setSelectedRegionId: state.setSelectedRegionId,
       activeSidePanelTab: state.activeSidePanelTab,
       setActiveSidePanelTab: state.setActiveSidePanelTab,
+      metadata: state.metadata,
+      duration: state.duration,
     })),
   )
+
+  // Get video element from ref
+  const videoElement = videoRef?.current || null
+
+  // Handle adding AI-generated zoom regions
+  const handleRegionsGenerated = (regions: ZoomRegion[]) => {
+    // Add each region to the timeline
+    const { addZoomRegion, updateRegion } = useEditorStore.getState()
+    
+    // Clear existing AI regions first
+    Object.keys(zoomRegions).forEach(id => {
+      if (id.startsWith('ai-zoom-')) {
+        useEditorStore.getState().deleteRegion(id)
+      }
+    })
+    
+    // Add new regions
+    regions.forEach((region) => {
+      addZoomRegion()
+      // Get the last added region (should be the one we just added)
+      const state = useEditorStore.getState()
+      const regionIds = Object.keys(state.zoomRegions)
+      if (regionIds.length > 0) {
+        const lastId = regionIds[regionIds.length - 1]
+        updateRegion(lastId, region)
+      }
+    })
+  }
 
   // Optimize region lookup using useMemo
   const selectedRegion = useMemo(() => {
@@ -148,6 +184,21 @@ export function SidePanel() {
         <div className="h-full" hidden={activeSidePanelTab !== 'cursor'}>
           <CursorSettings />
         </div>
+        {/* AI Zoom Panel - hidden by default */}
+        <div className="h-full" hidden={activeSidePanelTab !== 'ai-zoom'}>
+          <AIZoomSettingsPanel 
+            videoElement={videoElement}
+            duration={duration}
+            metadata={metadata}
+            onRegionsGenerated={handleRegionsGenerated}
+          />
+        </div>
+        {/* Production Panel */}
+        <div className="h-full" hidden={activeSidePanelTab !== 'production'}>
+          <ProductionPanel 
+            videoDuration={duration}
+          />
+        </div>
       </div>
 
       {/* Vertical Tab Navigator (Always visible) */}
@@ -171,7 +222,6 @@ export function SidePanel() {
             icon={<Microphone className="w-5 h-5" />}
             isActive={activeSidePanelTab === 'audio'}
             onClick={() => setActiveSidePanelTab('audio')}
-            disabled={!hasAudioTrack}
           />
           <TabButton
             label="Animation"
@@ -184,6 +234,20 @@ export function SidePanel() {
             icon={<Pointer className="w-5 h-5" />}
             isActive={activeSidePanelTab === 'cursor'}
             onClick={() => setActiveSidePanelTab('cursor')}
+          />
+          {/* AI Zoom Tab */}
+          <TabButton
+            label="AI Zoom"
+            icon={<Star className="w-5 h-5" />}
+            isActive={activeSidePanelTab === 'ai-zoom'}
+            onClick={() => setActiveSidePanelTab('ai-zoom')}
+          />
+          {/* Production Tab */}
+          <TabButton
+            label="Production"
+            icon={<Wand className="w-5 h-5" />}
+            isActive={activeSidePanelTab === 'production'}
+            onClick={() => setActiveSidePanelTab('production')}
           />
         </div>
       </div>

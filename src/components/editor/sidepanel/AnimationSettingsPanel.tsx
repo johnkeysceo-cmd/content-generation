@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useEditorStore } from '../../../store/editorStore'
-import { Route, Wand, Check } from 'tabler-icons-react'
+import { Route, Wand, Check, Blur } from 'tabler-icons-react'
 import { ZOOM, DEFAULTS } from '../../../lib/constants'
 import { EASING_MAP } from '../../../lib/easing'
 import { cn } from '../../../lib/utils'
@@ -8,17 +8,20 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '.
 import { Slider } from '../../ui/slider'
 import { Button } from '../../ui/button'
 import { Collapse } from '../../ui/collapse'
+import { Switch } from '../../ui/switch'
 
 const speedOptions = Object.keys(ZOOM.SPEED_OPTIONS)
 const easingOptions = Object.keys(EASING_MAP)
 
 export function AnimationSettingsPanel() {
-  const { applyAnimationSettingsToAll } = useEditorStore.getState()
+  const { applyAnimationSettingsToAll, zoomRegions, updateRegion } = useEditorStore.getState()
 
   // Local state
   const [speed, setSpeed] = useState(DEFAULTS.ANIMATION.SPEED.defaultValue)
   const [easing, setEasing] = useState(DEFAULTS.ANIMATION.EASING.defaultValue)
   const [zoomLevel, setZoomLevel] = useState(DEFAULTS.ANIMATION.ZOOM_LEVEL.defaultValue)
+  const [blurEnabled, setBlurEnabled] = useState(DEFAULTS.ANIMATION.ZOOM_BLUR.ENABLED.defaultValue)
+  const [blurAmount, setBlurAmount] = useState(DEFAULTS.ANIMATION.ZOOM_BLUR.AMOUNT.defaultValue)
   const [applyStatus, setApplyStatus] = useState<'idle' | 'applied'>('idle')
 
   const handleApplyToAll = () => {
@@ -26,6 +29,11 @@ export function AnimationSettingsPanel() {
 
     const transitionDuration = ZOOM.SPEED_OPTIONS[speed as keyof typeof ZOOM.SPEED_OPTIONS]
     applyAnimationSettingsToAll({ transitionDuration, easing, zoomLevel })
+
+    // Also apply blur settings to all zoom regions
+    Object.keys(zoomRegions).forEach((id) => {
+      updateRegion(id, { blurEnabled, blurAmount })
+    })
 
     setApplyStatus('applied')
     setTimeout(() => setApplyStatus('idle'), 2000)
@@ -35,6 +43,8 @@ export function AnimationSettingsPanel() {
     setSpeed(DEFAULTS.ANIMATION.SPEED.defaultValue)
     setEasing(DEFAULTS.ANIMATION.EASING.defaultValue)
     setZoomLevel(DEFAULTS.ANIMATION.ZOOM_LEVEL.defaultValue)
+    setBlurEnabled(DEFAULTS.ANIMATION.ZOOM_BLUR.ENABLED.defaultValue)
+    setBlurAmount(DEFAULTS.ANIMATION.ZOOM_BLUR.AMOUNT.defaultValue)
   }
 
   return (
@@ -114,6 +124,38 @@ export function AnimationSettingsPanel() {
                 value={zoomLevel}
                 onChange={setZoomLevel}
               />
+            </div>
+
+            {/* NEW: Zoom Blur Effect */}
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Blur className="w-4 h-4 text-primary" />
+                  <label className="text-sm font-medium text-sidebar-foreground">Zoom Blur</label>
+                </div>
+                <Switch
+                  checked={blurEnabled}
+                  onCheckedChange={setBlurEnabled}
+                />
+              </div>
+              {blurEnabled && (
+                <div className="pl-6 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-muted-foreground">Blur Amount</span>
+                    <span className="text-xs font-semibold text-primary tabular-nums">{blurAmount.toFixed(1)}px</span>
+                  </div>
+                  <Slider
+                    min={DEFAULTS.ANIMATION.ZOOM_BLUR.AMOUNT.min}
+                    max={DEFAULTS.ANIMATION.ZOOM_BLUR.AMOUNT.max}
+                    step={DEFAULTS.ANIMATION.ZOOM_BLUR.AMOUNT.step}
+                    value={blurAmount}
+                    onChange={setBlurAmount}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Adds subtle blur during zoom transitions for a smoother effect.
+                  </p>
+                </div>
+              )}
             </div>
 
             {/* Apply Collapse */}

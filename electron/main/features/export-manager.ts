@@ -29,6 +29,8 @@ export async function startExport(event: IpcMainInvokeEvent, { projectState, exp
       preload: PRELOAD_SCRIPT,
       offscreen: true,
       webSecurity: false,
+      contextIsolation: true,
+      nodeIntegration: false,
     },
   })
   if (VITE_DEV_SERVER_URL) {

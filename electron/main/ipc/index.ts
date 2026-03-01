@@ -6,6 +6,7 @@ import * as fsHandlers from './handlers/file-system'
 import * as recordingHandlers from './handlers/recording'
 import * as settingsHandlers from './handlers/settings'
 import * as shellHandlers from './handlers/shell'
+import { handleBatchProcess } from '../features/batch-manager'
 
 export function registerIpcHandlers() {
   // App & Window
@@ -50,4 +51,7 @@ export function registerIpcHandlers() {
   // Shell
   ipcMain.on('shell:showItemInFolder', shellHandlers.showItemInFolder)
   ipcMain.on('shell:openExternal', shellHandlers.openExternal)
+
+  // Batch Processing
+  ipcMain.handle('batch:process', handleBatchProcess)
 }
